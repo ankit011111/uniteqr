@@ -3,23 +3,49 @@ import AdminLayout from '../../components/AdminLayout';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
-import { Download, ExternalLink } from 'lucide-react';
+import { Download, ExternalLink, RefreshCw } from 'lucide-react';
 
 const AdminQR = () => {
   const { user } = useAuth();
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [regenerating, setRegenerating] = useState(false);
+  const [baseUrl, setBaseUrl] = useState('');
+
+  const loadTables = async () => {
+    try {
+      const res = await api.get(`/cafe/${user.cafeId}/tables`);
+      setTables(res.data);
+      if (res.data.length > 0) {
+        // Extract the base URL from the first QR url
+        const firstUrl = res.data[0].qrUrl;
+        const match = firstUrl.match(/^(https?:\/\/[^/]+)/);
+        if (match) setBaseUrl(match[1]);
+      }
+    } catch {
+      toast.error('Failed to load QR codes');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await api.get(`/cafe/${user.cafeId}/tables`);
-        setTables(res.data);
-      } catch { toast.error('Failed to load QR codes'); }
-      finally { setLoading(false); }
-    };
-    load();
+    loadTables();
   }, [user.cafeId]);
+
+  const regenerateQRs = async () => {
+    setRegenerating(true);
+    try {
+      const res = await api.post(`/cafe/${user.cafeId}/tables/regenerate`);
+      setTables(res.data.tables);
+      setBaseUrl(res.data.baseUrl);
+      toast.success('QR codes regenerated with current network IP!');
+    } catch {
+      toast.error('Failed to regenerate QR codes');
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   const downloadQR = (table) => {
     const link = document.createElement('a');
@@ -37,17 +63,48 @@ const AdminQR = () => {
     <AdminLayout title="QR Codes">
       <div className="space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <p className="text-sm text-gray-500">{tables.length} tables</p>
-          {tables.length > 0 && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={downloadAll}
-              className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-orange-700 transition-colors"
+              onClick={regenerateQRs}
+              disabled={regenerating}
+              className="flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-gray-900 transition-colors disabled:opacity-60"
             >
-              <Download size={16} /> Download All
+              <RefreshCw size={16} className={regenerating ? 'animate-spin' : ''} />
+              {regenerating ? 'Regenerating...' : 'Refresh QR (Fix Mobile)'}
             </button>
-          )}
+            {tables.length > 0 && (
+              <button
+                onClick={downloadAll}
+                className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-orange-700 transition-colors"
+              >
+                <Download size={16} /> Download All
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Network IP banner */}
+        {baseUrl && (
+          <div className={`rounded-2xl p-4 border text-sm ${
+            baseUrl.includes('localhost')
+              ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
+              : 'bg-green-50 border-green-200 text-green-800'
+          }`}>
+            {baseUrl.includes('localhost') ? (
+              <>
+                <p className="font-semibold mb-1">⚠️ QR codes point to <code>localhost</code></p>
+                <p className="text-xs">Mobile phones can't open localhost URLs. Click <strong>"Refresh QR (Fix Mobile)"</strong> to regenerate with your network IP.</p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold mb-1">✅ QR codes are ready for mobile scanning</p>
+                <p className="text-xs">Pointing to: <code>{baseUrl}</code> — Make sure your phone is on the same Wi-Fi.</p>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Instructions */}
         <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4">

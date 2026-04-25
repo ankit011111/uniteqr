@@ -1,4 +1,5 @@
 const express = require('express');
+const os = require('os');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const QRCode = require('qrcode');
@@ -8,6 +9,20 @@ const MenuItem = require('../models/MenuItem');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
+
+// Helper: get local network IP (falls back to localhost)
+function getBaseUrl() {
+  if (process.env.BASE_URL) return process.env.BASE_URL;
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return `http://${iface.address}:5173`;
+      }
+    }
+  }
+  return 'http://localhost:5173';
+}
 
 const DEFAULT_MENU = [
   { name: 'Espresso', price: 80, category: 'Coffee', description: 'Rich, bold single shot of espresso', imageUrl: 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=400&q=80' },
@@ -51,7 +66,7 @@ router.post('/create-cafe', auth, async (req, res) => {
     });
 
     // Create tables and generate QRs
-    const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+    const BASE_URL = getBaseUrl();
     const tableData = [];
     for (let i = 1; i <= numTables; i++) {
       const qrUrl = `${BASE_URL}/cafe/${cafeId}/table/${i}`;
