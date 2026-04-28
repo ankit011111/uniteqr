@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema({
   role: { type: String, default: 'ADMIN' },
   cafeId: { type: String, required: true, unique: true },
   planType: { type: Number, default: 500, enum: [500, 1000, 1500] },
+  upiId: { type: String, default: '' },
   createdBy: { type: String }
 }, { timestamps: true });
 

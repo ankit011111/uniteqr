@@ -82,9 +82,24 @@ router.post('/:cafeId/tables/regenerate', auth, async (req, res) => {
 router.get('/:cafeId/info', async (req, res) => {
   try {
     const User = require('../models/User');
-    const cafe = await User.findOne({ cafeId: req.params.cafeId }).select('cafeName cafeId planType');
+    const cafe = await User.findOne({ cafeId: req.params.cafeId }).select('cafeName cafeId planType upiId');
     if (!cafe) return res.status(404).json({ error: 'Cafe not found' });
-    res.json({ cafeName: cafe.cafeName, cafeId: cafe.cafeId, planType: cafe.planType });
+    res.json({ cafeName: cafe.cafeName, cafeId: cafe.cafeId, planType: cafe.planType, upiId: cafe.upiId || '' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PATCH update UPI ID (admin only)
+router.patch('/:cafeId/upi', require('../middleware/auth'), async (req, res) => {
+  try {
+    const User = require('../models/User');
+    if (req.user.role !== 'ADMIN' || req.user.cafeId !== req.params.cafeId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const { upiId } = req.body;
+    await User.findOneAndUpdate({ cafeId: req.params.cafeId }, { upiId: upiId || '' });
+    res.json({ success: true, upiId });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
