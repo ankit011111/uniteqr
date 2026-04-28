@@ -47,17 +47,26 @@ router.get('/stats', auth, async (req, res) => {
       return {
         cafeName: cafe.cafeName,
         cafeId: cafe.cafeId,
+        phone: cafe.phone,
         createdBy: cafe.createdBy || 'Unknown',
+        planType: cafe.planType || 500,
         totalOrders: cafeOrders.length,
         revenue,
         createdAt: cafe.createdAt
       };
     }).sort((a, b) => b.totalOrders - a.totalOrders);
 
+    const planBreakdown = {
+      plan500: cafeStats.filter(c => c.planType === 500).length,
+      plan1000: cafeStats.filter(c => c.planType === 1000).length,
+      plan1500: cafeStats.filter(c => c.planType === 1500).length,
+    };
+
     res.json({
       totalCafes,
       employeeStats,
       cafeStats,
+      planBreakdown,
       appointments
     });
   } catch (err) {

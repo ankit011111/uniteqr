@@ -6,7 +6,7 @@ import { ArrowLeft, Download, Copy, CheckCircle2 } from 'lucide-react';
 
 const CreateCafe = () => {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ cafeName: '', phone: '', tables: '' });
+  const [form, setForm] = useState({ cafeName: '', phone: '', tables: '', planType: '500' });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -76,6 +76,14 @@ const CreateCafe = () => {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Café ID</span>
                 <span className="font-mono text-xs text-gray-700">{result.cafeId}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Plan</span>
+                <span className={`font-bold text-xs px-2 py-0.5 rounded-full ${
+                  result.planType === 1500 ? 'bg-red-100 text-red-700' :
+                  result.planType === 1000 ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-green-100 text-green-700'
+                }`}>₹{result.planType} Plan</span>
               </div>
             </div>
 
@@ -177,6 +185,28 @@ const CreateCafe = () => {
                 onChange={e => setForm({ ...form, tables: e.target.value })}
                 required
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Plan *</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[{v:'500',label:'₹500',sub:'Basic',color:'green'},{v:'1000',label:'₹1000',sub:'Customer Data',color:'yellow'},{v:'1500',label:'₹1500',sub:'Full System',color:'red'}].map(p => (
+                  <button
+                    key={p.v}
+                    type="button"
+                    onClick={() => setForm({...form, planType: p.v})}
+                    className={`py-3 rounded-xl text-sm font-bold border-2 transition-all ${
+                      form.planType === p.v
+                        ? p.color === 'green' ? 'border-green-500 bg-green-50 text-green-700'
+                        : p.color === 'yellow' ? 'border-yellow-500 bg-yellow-50 text-yellow-700'
+                        : 'border-red-500 bg-red-50 text-red-700'
+                        : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    <div>{p.label}</div>
+                    <div className="text-[10px] font-normal mt-0.5">{p.sub}</div>
+                  </button>
+                ))}
+              </div>
             </div>
             <button
               type="submit"

@@ -2,7 +2,20 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
-import { ShoppingCart, Plus, Minus, X, Coffee, ImageIcon } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, X, Coffee, ImageIcon, Phone, CreditCard } from 'lucide-react';
+
+const RAZORPAY_SCRIPT = 'https://checkout.razorpay.com/v1/checkout.js';
+
+function loadRazorpay() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const s = document.createElement('script');
+    s.src = RAZORPAY_SCRIPT;
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.body.appendChild(s);
+  });
+}
 
 const CustomerMenu = () => {
   const { cafeId, tableNumber } = useParams();
@@ -14,6 +27,11 @@ const CustomerMenu = () => {
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
+
+  // Plan-gated
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [phoneSubmitted, setPhoneSubmitted] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -33,12 +51,12 @@ const CustomerMenu = () => {
     load();
   }, [cafeId]);
 
+  const planType = cafe?.planType || 500;
+
   const categories = ['All', ...new Set(menu.map(i => i.category))];
   const filtered = activeCategory === 'All' ? menu : menu.filter(i => i.category === activeCategory);
 
-  const addToCart = (item) => {
-    setCart(prev => ({ ...prev, [item._id]: { ...item, qty: (prev[item._id]?.qty || 0) + 1 } }));
-  };
+  const addToCart = (item) => setCart(prev => ({ ...prev, [item._id]: { ...item, qty: (prev[item._id]?.qty || 0) + 1 } }));
   const removeFromCart = (itemId) => {
     setCart(prev => {
       const updated = { ...prev };
@@ -55,12 +73,98 @@ const CustomerMenu = () => {
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0);
   const cartTotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
 
+  // Step 1: Validate cart & open phone modal (for ₹1000+) or place directly (₹500)
+  const handleCheckout = () => {
+    if (cartItems.length === 0) return;
+    if (planType >= 1000 && !phoneSubmitted) {
+      setShowPhoneModal(true);
+    } else {
+      initiateOrder();
+    }
+  };
+
+  const handlePhoneSubmit = (e) => {
+    e.preventDefault();
+    if (customerPhone.trim().length < 10) {
+      toast.error('Enter a valid 10-digit phone number');
+      return;
+    }
+    setPhoneSubmitted(true);
+    setShowPhoneModal(false);
+    initiateOrder();
+  };
+
+  // Step 2: Either pay via Razorpay (₹1500) or place order directly
+  const initiateOrder = async () => {
+    if (planType >= 1500) {
+      await handleRazorpayFlow();
+    } else {
+      await placeOrder(null, null);
+    }
+  };
+
+  const handleRazorpayFlow = async () => {
+    setPlacing(true);
+    try {
+      const loaded = await loadRazorpay();
+      if (!loaded) { toast.error('Payment SDK failed to load'); setPlacing(false); return; }
+
+      // Create Razorpay order on backend
+      const rzRes = await api.post('/orders/razorpay/create', { amount: cartTotal, cafeId });
+      const { orderId: rzOrderId, keyId } = rzRes.data;
+
+      // First save our DB order with PENDING payment
+      const items = cartItems.map(i => ({ name: i.name, price: i.price, qty: i.qty, menuItemId: i._id }));
+      const orderRes = await api.post('/orders', {
+        cafeId, tableNumber: parseInt(tableNumber), items,
+        customerPhone: customerPhone || null
+      });
+      const dbOrderId = orderRes.data._id;
+
+      const options = {
+        key: keyId,
+        amount: cartTotal * 100,
+        currency: 'INR',
+        name: cafe?.cafeName || 'UniteQR',
+        description: `Table ${tableNumber} Order`,
+        order_id: rzOrderId,
+        handler: async (response) => {
+          try {
+            await api.post('/orders/razorpay/verify', {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              orderId: dbOrderId
+            });
+            toast.success('Payment successful! Order placed 🎉');
+            navigate(`/order/${dbOrderId}`);
+          } catch {
+            toast.error('Payment verification failed');
+          }
+        },
+        prefill: { contact: customerPhone || '' },
+        theme: { color: '#ea580c' },
+        modal: { ondismiss: () => { setPlacing(false); toast.error('Payment cancelled'); } }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to initiate payment');
+      setPlacing(false);
+    }
+  };
+
   const placeOrder = async () => {
     if (cartItems.length === 0) return;
     setPlacing(true);
     try {
       const items = cartItems.map(i => ({ name: i.name, price: i.price, qty: i.qty, menuItemId: i._id }));
-      const res = await api.post('/orders', { cafeId, tableNumber: parseInt(tableNumber), items });
+      const res = await api.post('/orders', {
+        cafeId, tableNumber: parseInt(tableNumber), items,
+        customerPhone: customerPhone || null
+      });
       toast.success('Order placed! 🎉');
       navigate(`/order/${res.data._id}`);
     } catch {
@@ -219,14 +323,68 @@ const CustomerMenu = () => {
                 <span className="font-bold text-orange-600 text-xl">₹{cartTotal}</span>
               </div>
 
+              {/* Plan badge */}
+              {planType >= 1000 && !phoneSubmitted && (
+                <div className="flex items-center gap-2 bg-blue-50 rounded-xl p-3">
+                  <Phone size={16} className="text-blue-500" />
+                  <p className="text-xs text-blue-700 font-medium">Phone number required before placing order</p>
+                </div>
+              )}
+              {planType >= 1500 && (
+                <div className="flex items-center gap-2 bg-green-50 rounded-xl p-3">
+                  <CreditCard size={16} className="text-green-500" />
+                  <p className="text-xs text-green-700 font-medium">Online payment via Razorpay</p>
+                </div>
+              )}
+
               <button
-                onClick={placeOrder}
+                onClick={() => { setShowCart(false); handleCheckout(); }}
                 disabled={placing}
-                className="w-full bg-orange-600 text-white py-4 rounded-2xl font-bold text-lg hover:bg-orange-700 transition-colors disabled:opacity-60"
+                className="w-full bg-orange-600 text-white py-4 rounded-2xl font-bold text-lg hover:bg-orange-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {placing ? 'Placing Order...' : '🍽️ Place Order'}
+                {planType >= 1500
+                  ? <><CreditCard size={18} /> {placing ? 'Processing...' : `Pay ₹${cartTotal}`}</>
+                  : `🍽️ ${placing ? 'Placing Order...' : 'Place Order'}`
+                }
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Phone Modal (₹1000+ plan) */}
+      {showPhoneModal && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center px-4">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl">
+            <div className="w-14 h-14 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Phone size={28} className="text-orange-600" />
+            </div>
+            <h2 className="text-xl font-black text-gray-900 text-center mb-1">Your Phone Number</h2>
+            <p className="text-sm text-gray-500 text-center mb-6">Required for order updates & tracking</p>
+            <form onSubmit={handlePhoneSubmit} className="space-y-4">
+              <input
+                type="tel"
+                autoFocus
+                maxLength={10}
+                value={customerPhone}
+                onChange={e => setCustomerPhone(e.target.value.replace(/\D/g, ''))}
+                placeholder="e.g. 9876543210"
+                className="w-full border-2 border-gray-200 rounded-2xl px-5 py-4 text-lg font-bold text-center tracking-widest focus:outline-none focus:border-orange-500 transition-colors"
+              />
+              <button
+                type="submit"
+                className="w-full bg-orange-600 text-white py-4 rounded-2xl font-bold text-base hover:bg-orange-700 transition-colors"
+              >
+                {planType >= 1500 ? 'Continue to Pay →' : 'Place Order →'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPhoneModal(false)}
+                className="w-full text-gray-400 text-sm py-2"
+              >
+                Cancel
+              </button>
+            </form>
           </div>
         </div>
       )}

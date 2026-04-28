@@ -10,6 +10,8 @@ const orderSchema = new mongoose.Schema({
     menuItemId: mongoose.Schema.Types.ObjectId
   }],
   totalAmount: { type: Number, required: true },
+  customerPhone: { type: String },
+  paymentStatus: { type: String, enum: ['PENDING', 'PAID'], default: 'PENDING' },
   status: {
     type: String,
     enum: ['PLACED', 'ACCEPTED', 'PREPARING', 'READY', 'COMPLETED'],

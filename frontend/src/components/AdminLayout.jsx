@@ -2,22 +2,25 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ShoppingBag, UtensilsCrossed,
-  BarChart2, QrCode, LogOut, Menu, X
+  BarChart2, QrCode, LogOut, Menu, X, Users
 } from 'lucide-react';
 import { useState } from 'react';
-
-const navItems = [
-  { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', exact: true },
-  { to: '/admin/orders', icon: ShoppingBag, label: 'Orders' },
-  { to: '/admin/menu', icon: UtensilsCrossed, label: 'Menu' },
-  { to: '/admin/analytics', icon: BarChart2, label: 'Analytics' },
-  { to: '/admin/qr', icon: QrCode, label: 'QR Codes' },
-];
 
 const AdminLayout = ({ children, title }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const planType = user?.planType || 500;
+
+  const navItems = [
+    { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', exact: true },
+    { to: '/admin/orders', icon: ShoppingBag, label: 'Orders' },
+    { to: '/admin/menu', icon: UtensilsCrossed, label: 'Menu' },
+    { to: '/admin/analytics', icon: BarChart2, label: 'Analytics' },
+    { to: '/admin/qr', icon: QrCode, label: 'QR Codes' },
+    ...(planType >= 1000 ? [{ to: '/admin/customers', icon: Users, label: 'Customers' }] : []),
+  ];
 
   const handleLogout = () => { logout(); navigate('/admin/login'); };
 
@@ -35,6 +38,11 @@ const AdminLayout = ({ children, title }) => {
           <div>
             <h1 className="text-xl font-bold text-orange-600">UniteQR</h1>
             <p className="text-xs text-gray-500 truncate">{user?.cafeName}</p>
+            <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+              planType >= 1500 ? 'bg-red-100 text-red-600' :
+              planType >= 1000 ? 'bg-yellow-100 text-yellow-600' :
+              'bg-green-100 text-green-600'
+            }`}>₹{planType} Plan</span>
           </div>
           <button className="lg:hidden text-gray-500" onClick={() => setSidebarOpen(false)}>
             <X size={20} />

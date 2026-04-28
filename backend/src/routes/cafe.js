@@ -82,9 +82,9 @@ router.post('/:cafeId/tables/regenerate', auth, async (req, res) => {
 router.get('/:cafeId/info', async (req, res) => {
   try {
     const User = require('../models/User');
-    const cafe = await User.findOne({ cafeId: req.params.cafeId }).select('cafeName cafeId');
+    const cafe = await User.findOne({ cafeId: req.params.cafeId }).select('cafeName cafeId planType');
     if (!cafe) return res.status(404).json({ error: 'Cafe not found' });
-    res.json({ cafeName: cafe.cafeName, cafeId: cafe.cafeId });
+    res.json({ cafeName: cafe.cafeName, cafeId: cafe.cafeId, planType: cafe.planType });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }

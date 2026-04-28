@@ -44,7 +44,7 @@ router.post('/create-cafe', auth, async (req, res) => {
   }
 
   try {
-    const { cafeName, phone, tables } = req.body;
+    const { cafeName, phone, tables, planType } = req.body;
     if (!cafeName || !phone || !tables) {
       return res.status(400).json({ error: 'cafeName, phone, and tables are required' });
     }
@@ -54,6 +54,8 @@ router.post('/create-cafe', auth, async (req, res) => {
       return res.status(400).json({ error: 'Tables must be between 1 and 50' });
     }
 
+    const selectedPlan = planType ? parseInt(planType) : 500;
+
     // Generate unique cafeId, username, password
     const cafeId = uuidv4().split('-')[0];
     const username = cafeName.toLowerCase().replace(/\s+/g, '') + Math.floor(Math.random() * 100);
@@ -62,7 +64,7 @@ router.post('/create-cafe', auth, async (req, res) => {
 
     // Create admin user
     const user = await User.create({ 
-      cafeName, phone, username, passwordHash, cafeId, createdBy: req.user.username 
+      cafeName, phone, username, passwordHash, cafeId, planType: selectedPlan, createdBy: req.user.username 
     });
 
     // Create tables and generate QRs

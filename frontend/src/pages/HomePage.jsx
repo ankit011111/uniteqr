@@ -46,6 +46,7 @@ const HomePage = () => {
             <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-gray-600 mr-4">
               <a href="#features" className="hover:text-blue-600 transition-colors">Features</a>
               <a href="#services" className="hover:text-blue-600 transition-colors">Services</a>
+              <a href="#pricing" className="hover:text-blue-600 transition-colors">Pricing</a>
               <a href="#contact" className="hover:text-blue-600 transition-colors">Contact</a>
             </div>
             
@@ -225,6 +226,65 @@ const HomePage = () => {
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section id="pricing" className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-black text-gray-900 mb-4">Simple, Transparent Pricing</h2>
+            <p className="text-xl text-gray-500 font-medium">Choose the plan that fits your business needs</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            <PricingCard 
+              title="Basic Digital Ordering"
+              price="500"
+              color="bg-green-50 text-green-700"
+              badge="🟢 Essential"
+              features={[
+                "QR Code per table",
+                "Scan & Order system",
+                "Simple Café Admin Panel",
+                "Order notifications (dashboard)"
+              ]}
+              missing={[
+                "No phone number capture",
+                "No customer data",
+                "No online payment"
+              ]}
+            />
+            <PricingCard 
+              title="Customer Data System"
+              price="1000"
+              color="bg-yellow-50 text-yellow-700"
+              badge="🟡 Growth"
+              popular={true}
+              features={[
+                "Everything in Basic Plan",
+                "Phone number capture",
+                "Customer database list",
+                "Order history tracking"
+              ]}
+              missing={[
+                "No online payment"
+              ]}
+            />
+            <PricingCard 
+              title="Complete System"
+              price="1500"
+              color="bg-red-50 text-red-700"
+              badge="🔴 Enterprise"
+              features={[
+                "Everything in Growth Plan",
+                "Online payment (Razorpay)",
+                "WhatsApp order alerts",
+                "Faster dashboard (Optimized UI)",
+                "Advanced analytics"
+              ]}
+            />
+          </div>
+        </div>
+      </section>
+
       {/* Trust Section */}
       <section className="py-20 border-t border-gray-100">
         <div className="max-w-7xl mx-auto px-6 flex flex-wrap justify-center gap-12 opacity-50 grayscale hover:grayscale-0 transition-all duration-700">
@@ -247,6 +307,49 @@ const ServiceCard = ({ icon, title, desc, color }) => (
     <div className={`mb-6 ${color}`}>{icon}</div>
     <h3 className="text-2xl font-black text-gray-900 mb-4">{title}</h3>
     <p className="text-gray-500 font-medium leading-relaxed">{desc}</p>
+  </div>
+);
+
+const PricingCard = ({ title, price, features, missing, color, badge, popular }) => (
+  <div className={`relative bg-white p-10 rounded-[40px] border ${popular ? 'border-blue-500 shadow-2xl scale-105 z-10' : 'border-gray-100 shadow-xl'} transition-all hover:scale-[1.02]`}>
+    {popular && (
+      <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-lg">
+        Most Popular
+      </div>
+    )}
+    <div className="mb-8">
+      <span className={`inline-block px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider mb-4 ${color}`}>
+        {badge}
+      </span>
+      <h3 className="text-2xl font-black text-gray-900 mb-2 leading-tight">{title}</h3>
+      <div className="flex items-baseline gap-1">
+        <span className="text-4xl font-black text-gray-900">₹{price}</span>
+        <span className="text-gray-400 font-bold">/month</span>
+      </div>
+    </div>
+
+    <div className="space-y-4 mb-10">
+      {features.map((feature, i) => (
+        <div key={i} className="flex items-start gap-3">
+          <div className="mt-1 w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+            <CheckCircle size={12} />
+          </div>
+          <span className="text-sm font-bold text-gray-700">{feature}</span>
+        </div>
+      ))}
+      {missing?.map((feature, i) => (
+        <div key={i} className="flex items-start gap-3 opacity-40">
+          <div className="mt-1 w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 shrink-0">
+            <div className="w-2 h-[2px] bg-gray-400"></div>
+          </div>
+          <span className="text-sm font-bold text-gray-500 line-through">{feature}</span>
+        </div>
+      ))}
+    </div>
+
+    <a href="#contact" className={`block w-full text-center py-4 rounded-2xl font-black transition-all ${popular ? 'bg-blue-600 text-white hover:bg-gray-900 shadow-xl shadow-blue-200' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'}`}>
+      Choose Plan
+    </a>
   </div>
 );
 

@@ -21,6 +21,7 @@ import AdminOrders from './pages/admin/AdminOrders';
 import AdminMenu from './pages/admin/AdminMenu';
 import AdminAnalytics from './pages/admin/AdminAnalytics';
 import AdminQR from './pages/admin/AdminQR';
+import AdminCustomers from './pages/admin/AdminCustomers';
 
 // Customer
 import CustomerMenu from './pages/customer/CustomerMenu';
@@ -56,6 +57,7 @@ const App = () => (
         <Route path="/admin/menu" element={<PrivateRoute role="ADMIN"><AdminMenu /></PrivateRoute>} />
         <Route path="/admin/analytics" element={<PrivateRoute role="ADMIN"><AdminAnalytics /></PrivateRoute>} />
         <Route path="/admin/qr" element={<PrivateRoute role="ADMIN"><AdminQR /></PrivateRoute>} />
+        <Route path="/admin/customers" element={<PrivateRoute role="ADMIN"><AdminCustomers /></PrivateRoute>} />
 
         {/* Default / Public */}
         <Route path="/" element={<HomePage />} />

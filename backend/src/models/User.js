@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema({
   passwordHash: { type: String, required: true },
   role: { type: String, default: 'ADMIN' },
   cafeId: { type: String, required: true, unique: true },
+  planType: { type: Number, default: 500, enum: [500, 1000, 1500] },
   createdBy: { type: String }
 }, { timestamps: true });
 
