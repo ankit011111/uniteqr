@@ -90,16 +90,40 @@ router.get('/:cafeId/info', async (req, res) => {
   }
 });
 
-// PATCH update UPI ID (admin only)
-router.patch('/:cafeId/upi', require('../middleware/auth'), async (req, res) => {
+// GET payment settings (admin only)
+router.get('/:cafeId/payment-settings', auth, async (req, res) => {
   try {
     const User = require('../models/User');
     if (req.user.role !== 'ADMIN' || req.user.cafeId !== req.params.cafeId) {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    const { upiId } = req.body;
-    await User.findOneAndUpdate({ cafeId: req.params.cafeId }, { upiId: upiId || '' });
-    res.json({ success: true, upiId });
+    const cafe = await User.findOne({ cafeId: req.params.cafeId });
+    res.json({
+      upiId: cafe.upiId || '',
+      razorpayKeyId: cafe.razorpayKeyId || '',
+      razorpayKeySecret: cafe.razorpayKeySecret || ''
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PATCH update payment settings (admin only)
+router.patch('/:cafeId/payment-settings', auth, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    if (req.user.role !== 'ADMIN' || req.user.cafeId !== req.params.cafeId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const { upiId, razorpayKeyId, razorpayKeySecret } = req.body;
+    
+    const updateData = {};
+    if (upiId !== undefined) updateData.upiId = upiId;
+    if (razorpayKeyId !== undefined) updateData.razorpayKeyId = razorpayKeyId;
+    if (razorpayKeySecret !== undefined) updateData.razorpayKeySecret = razorpayKeySecret;
+
+    await User.findOneAndUpdate({ cafeId: req.params.cafeId }, updateData);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }

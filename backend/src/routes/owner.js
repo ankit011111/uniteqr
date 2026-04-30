@@ -108,6 +108,41 @@ router.put('/employees/:id', auth, async (req, res) => {
   }
 });
 
+// Update cafe plan and password
+router.put('/cafes/:cafeId', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'OWNER') return res.status(403).json({ error: 'Forbidden' });
+    const { planType, password } = req.body;
+    
+    let updateData = {};
+    
+    if (planType) {
+      if (![500, 1000, 1500].includes(Number(planType))) {
+        return res.status(400).json({ error: 'Invalid plan type' });
+      }
+      updateData.planType = Number(planType);
+    }
+
+    if (password) {
+      updateData.passwordHash = await bcrypt.hash(password, 10);
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'No data to update' });
+    }
+
+    const cafe = await User.findOneAndUpdate(
+      { cafeId: req.params.cafeId, role: 'ADMIN' },
+      updateData,
+      { new: true }
+    );
+    if (!cafe) return res.status(404).json({ error: 'Cafe not found' });
+    res.json({ success: true, planType: cafe.planType });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Delete employee
 router.delete('/employees/:id', auth, async (req, res) => {
   try {
@@ -117,6 +152,18 @@ router.delete('/employees/:id', auth, async (req, res) => {
     if (req.params.id === req.user.id) return res.status(400).json({ error: 'Cannot delete yourself' });
 
     await Employee.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Delete cafe
+router.delete('/cafes/:cafeId', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'OWNER') return res.status(403).json({ error: 'Forbidden' });
+    await User.findOneAndDelete({ cafeId: req.params.cafeId, role: 'ADMIN' });
+    await Order.deleteMany({ cafeId: req.params.cafeId });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });

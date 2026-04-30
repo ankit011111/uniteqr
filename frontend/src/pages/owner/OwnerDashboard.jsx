@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
-import { Users, Store, TrendingUp, LogOut, UserPlus, Trash2, Shield, X, Phone } from 'lucide-react';
+import { Users, Store, TrendingUp, LogOut, UserPlus, Trash2, Shield, X, Phone, Edit3 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -43,6 +43,11 @@ const OwnerDashboard = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cafeSearch, setCafeSearch] = useState('');
 
+  // Edit Cafe State
+  const [showEditCafe, setShowEditCafe] = useState(false);
+  const [editingCafe, setEditingCafe] = useState(null);
+  const [editCafeData, setEditCafeData] = useState({ planType: 500, password: '' });
+
   const fetchStats = async () => {
     try {
       const res = await api.get('/owner/stats');
@@ -82,6 +87,42 @@ const OwnerDashboard = () => {
       toast.success('Employee deleted');
       fetchStats();
     } catch { toast.error('Failed to delete employee'); }
+  };
+
+  const handleEditCafe = (cafe) => {
+    setEditingCafe(cafe);
+    setEditCafeData({ planType: cafe.planType || 500, password: '' });
+    setShowEditCafe(true);
+  };
+
+  const handleUpdateCafe = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const payload = { planType: editCafeData.planType };
+      if (editCafeData.password.trim()) {
+        payload.password = editCafeData.password.trim();
+      }
+      await api.put(`/owner/cafes/${editingCafe.cafeId}`, payload);
+      toast.success('Cafe updated successfully');
+      setShowEditCafe(false);
+      fetchStats();
+    } catch (err) {
+      toast.error('Failed to update cafe');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteCafe = async (cafeId, cafeName) => {
+    if (!window.confirm(`Delete café "${cafeName}" and ALL its orders permanently?`)) return;
+    try {
+      await api.delete(`/owner/cafes/${cafeId}`);
+      toast.success('Café deleted');
+      fetchStats();
+    } catch {
+      toast.error('Failed to delete café');
+    }
   };
 
   if (loading) {
@@ -182,6 +223,7 @@ const OwnerDashboard = () => {
                   <th className="px-8 py-5">Added By</th>
                   <th className="px-8 py-5 text-right">Orders</th>
                   <th className="px-8 py-5 text-right">Revenue</th>
+                  <th className="px-8 py-5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -207,6 +249,24 @@ const OwnerDashboard = () => {
                     <td className="px-8 py-5 text-gray-500 font-bold text-xs">{cafe.createdBy}</td>
                     <td className="px-8 py-5 text-right font-black text-gray-700">{cafe.totalOrders}</td>
                     <td className="px-8 py-5 text-right font-black text-emerald-600 text-lg">₹{cafe.revenue}</td>
+                    <td className="px-8 py-5 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleEditCafe(cafe)}
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                          title="Edit Café"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCafe(cafe.cafeId, cafe.cafeName)}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                          title="Delete Café"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -330,6 +390,53 @@ const OwnerDashboard = () => {
               <button type="submit" disabled={isSubmitting}
                 className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl text-lg hover:bg-gray-900 transition-all disabled:opacity-50 shadow-xl">
                 {isSubmitting ? 'Creating...' : 'Create Employee Access'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Cafe Modal */}
+      {showEditCafe && editingCafe && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={() => setShowEditCafe(false)} />
+          <div className="relative bg-white w-full max-w-md rounded-[32px] shadow-2xl p-10 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-black text-gray-900">Edit Café</h3>
+                <p className="text-xs text-gray-500 font-bold">{editingCafe.cafeName}</p>
+              </div>
+              <button onClick={() => setShowEditCafe(false)} className="text-gray-400 hover:text-gray-900"><X size={24} /></button>
+            </div>
+            
+            <form onSubmit={handleUpdateCafe} className="space-y-6">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Subscription Plan</label>
+                <select
+                  value={editCafeData.planType}
+                  onChange={e => setEditCafeData({ ...editCafeData, planType: Number(e.target.value) })}
+                  className="w-full bg-gray-50 border-0 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-blue-600 outline-none appearance-none"
+                >
+                  <option value={500}>₹500 · Basic (QR Only)</option>
+                  <option value={1000}>₹1000 · Growth (Customer CRM)</option>
+                  <option value={1500}>₹1500 · Complete (Online Payments)</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Reset Password</label>
+                <input 
+                  type="password" 
+                  value={editCafeData.password} 
+                  onChange={e => setEditCafeData({ ...editCafeData, password: e.target.value })}
+                  className="w-full bg-gray-50 border-0 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-blue-600 outline-none" 
+                  placeholder="Leave blank to keep unchanged" 
+                />
+              </div>
+
+              <button type="submit" disabled={isSubmitting}
+                className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl text-lg hover:bg-gray-900 transition-all disabled:opacity-50 shadow-xl">
+                {isSubmitting ? 'Saving...' : 'Save Changes'}
               </button>
             </form>
           </div>

@@ -70,14 +70,22 @@ router.put('/:id/status', auth, async (req, res) => {
 // POST create Razorpay order (public - for ₹1500 plan cafes)
 router.post('/razorpay/create', async (req, res) => {
   try {
+    const User = require('../models/User');
     const Razorpay = require('razorpay');
     const { amount, currency = 'INR', cafeId } = req.body;
     if (!amount || !cafeId) return res.status(400).json({ error: 'amount and cafeId required' });
 
-    const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET
-    });
+    const cafe = await User.findOne({ cafeId, role: 'ADMIN' });
+    if (!cafe) return res.status(404).json({ error: 'Cafe not found' });
+    
+    const key_id = cafe.razorpayKeyId || process.env.RAZORPAY_KEY_ID;
+    const key_secret = cafe.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET;
+
+    if (!key_id || !key_secret) {
+      return res.status(400).json({ error: 'Payment gateway not configured for this cafe' });
+    }
+
+    const razorpay = new Razorpay({ key_id, key_secret });
 
     const rzOrder = await razorpay.orders.create({
       amount: Math.round(amount * 100), // paise
@@ -85,7 +93,7 @@ router.post('/razorpay/create', async (req, res) => {
       receipt: `receipt_${cafeId}_${Date.now()}`
     });
 
-    res.json({ orderId: rzOrder.id, amount: rzOrder.amount, currency: rzOrder.currency, keyId: process.env.RAZORPAY_KEY_ID });
+    res.json({ orderId: rzOrder.id, amount: rzOrder.amount, currency: rzOrder.currency, keyId: key_id });
   } catch (err) {
     console.error('Razorpay error:', err);
     res.status(500).json({ error: 'Payment gateway error' });
@@ -95,11 +103,17 @@ router.post('/razorpay/create', async (req, res) => {
 // POST verify Razorpay payment & mark order PAID (public)
 router.post('/razorpay/verify', async (req, res) => {
   try {
+    const User = require('../models/User');
     const crypto = require('crypto');
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId, cafeId } = req.body;
+
+    const cafe = await User.findOne({ cafeId, role: 'ADMIN' });
+    const key_secret = cafe?.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET;
+
+    if (!key_secret) return res.status(400).json({ error: 'Payment gateway not configured' });
 
     const expectedSig = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .createHmac('sha256', key_secret)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest('hex');
 

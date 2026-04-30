@@ -78,8 +78,90 @@ const CustomerMenu = () => {
   const handlePhoneNext = (e) => {
     e.preventDefault();
     if (customerPhone.trim().length < 10) { toast.error('Enter a valid 10-digit phone number'); return; }
-    if (hasUpi) setStep('upi');
-    else placeOrder();
+    if (planType === 1500) {
+      initiateRazorpay();
+    } else if (hasUpi) {
+      setStep('upi');
+    } else {
+      placeOrder();
+    }
+  };
+
+  const initiateRazorpay = async () => {
+    if (placing) return;
+    setPlacing(true);
+    setStep('placing');
+    try {
+      // 1. Place order in our DB first
+      const items = cartItems.map(i => ({ name: i.name, price: i.price, qty: i.qty, menuItemId: i._id }));
+      const orderRes = await api.post('/orders', {
+        cafeId,
+        tableNumber: parseInt(tableNumber),
+        items,
+        customerPhone: customerPhone || null
+      });
+      const localOrderId = orderRes.data._id;
+
+      // 2. Create Razorpay order
+      const rzRes = await api.post('/orders/razorpay/create', {
+        amount: cartTotal,
+        cafeId
+      });
+      
+      const { orderId: rzOrderId, amount, currency, keyId } = rzRes.data;
+
+      // 3. Open Razorpay Checkout
+      const options = {
+        key: keyId,
+        amount: amount,
+        currency: currency,
+        name: cafe?.cafeName || 'Cafe Order',
+        description: `Order for Table ${tableNumber}`,
+        order_id: rzOrderId,
+        handler: async function (response) {
+          // 4. Verify payment
+          try {
+            await api.post('/orders/razorpay/verify', {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              orderId: localOrderId,
+              cafeId
+            });
+            toast.success('Payment successful! 🎉');
+            navigate(`/order/${localOrderId}`);
+          } catch (err) {
+            toast.error('Payment verification failed. Please contact counter.');
+            navigate(`/order/${localOrderId}`);
+          }
+        },
+        prefill: {
+          contact: customerPhone
+        },
+        theme: {
+          color: '#ea580c' // orange-600
+        },
+        modal: {
+          ondismiss: function() {
+            setPlacing(false);
+            setStep('menu');
+            toast.error('Payment cancelled. Order was not completed.');
+          }
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        toast.error('Payment Failed: ' + response.error.description);
+      });
+      rzp.open();
+
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to initiate payment.');
+      setStep('menu');
+      setPlacing(false);
+    }
   };
 
   const placeOrder = async () => {
@@ -374,7 +456,7 @@ const CustomerMenu = () => {
                 onClick={handleCheckout}
                 className="w-full bg-orange-600 text-white py-4 rounded-2xl font-bold text-lg hover:bg-orange-700 transition-colors flex items-center justify-center gap-2"
               >
-                {hasUpi ? <><Smartphone size={20} /> Pay & Place Order</> : '🍽️ Place Order'}
+                {planType === 1500 ? <><Smartphone size={20} /> Pay Online & Order</> : hasUpi ? <><Smartphone size={20} /> Pay & Place Order</> : '🍽️ Place Order'}
               </button>
             </div>
           </div>

@@ -13,28 +13,34 @@ const AdminQR = () => {
   const [regenerating, setRegenerating] = useState(false);
   const [baseUrl, setBaseUrl] = useState('');
 
-  // UPI state
+  // Payment states
   const [upiId, setUpiId] = useState('');
   const [upiInput, setUpiInput] = useState('');
-  const [editingUpi, setEditingUpi] = useState(false);
-  const [savingUpi, setSavingUpi] = useState(false);
+  const [rzpKeyId, setRzpKeyId] = useState('');
+  const [rzpKeySecret, setRzpKeySecret] = useState('');
+  const [editingPayment, setEditingPayment] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
 
   const loadTables = async () => {
     try {
-      const [tablesRes, infoRes] = await Promise.all([
+      const [tablesRes, settingsRes] = await Promise.all([
         api.get(`/cafe/${user.cafeId}/tables`),
-        api.get(`/cafe/${user.cafeId}/info`)
+        api.get(`/cafe/${user.cafeId}/payment-settings`)
       ]);
       setTables(tablesRes.data);
-      const savedUpi = infoRes.data.upiId || '';
-      setUpiId(savedUpi);
-      setUpiInput(savedUpi);
+      
+      const p = settingsRes.data;
+      setUpiId(p.upiId || '');
+      setUpiInput(p.upiId || '');
+      setRzpKeyId(p.razorpayKeyId || '');
+      setRzpKeySecret(p.razorpayKeySecret || '');
+
       if (tablesRes.data.length > 0) {
         const match = tablesRes.data[0].qrUrl.match(/^(https?:\/\/[^/]+)/);
         if (match) setBaseUrl(match[1]);
       }
     } catch {
-      toast.error('Failed to load QR codes');
+      toast.error('Failed to load settings');
     } finally {
       setLoading(false);
     }
@@ -56,19 +62,21 @@ const AdminQR = () => {
     }
   };
 
-  const saveUpi = async () => {
-    const trimmed = upiInput.trim();
-    if (!trimmed) { toast.error('Enter a valid UPI ID'); return; }
-    setSavingUpi(true);
+  const savePaymentSettings = async () => {
+    setSavingPayment(true);
     try {
-      await api.patch(`/cafe/${user.cafeId}/upi`, { upiId: trimmed });
-      setUpiId(trimmed);
-      setEditingUpi(false);
-      toast.success('UPI ID saved! Customers can now pay via UPI.');
+      await api.patch(`/cafe/${user.cafeId}/payment-settings`, {
+        upiId: upiInput.trim(),
+        razorpayKeyId: rzpKeyId.trim(),
+        razorpayKeySecret: rzpKeySecret.trim()
+      });
+      setUpiId(upiInput.trim());
+      setEditingPayment(false);
+      toast.success('Payment settings saved successfully!');
     } catch {
-      toast.error('Failed to save UPI ID');
+      toast.error('Failed to save payment settings');
     } finally {
-      setSavingUpi(false);
+      setSavingPayment(false);
     }
   };
 
@@ -91,84 +99,114 @@ const AdminQR = () => {
     <AdminLayout title="QR Codes & Payments">
       <div className="space-y-6">
 
-        {/* ──────────── UPI PAYMENT SETUP ──────────── */}
+        {/* ──────────── PAYMENT SETUP ──────────── */}
         <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-3xl p-6">
           <div className="flex items-start justify-between mb-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <Smartphone size={20} className="text-green-600" />
-                <h3 className="font-black text-gray-900 text-lg">UPI Payment Setup</h3>
-                <span className="bg-green-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase">FREE</span>
+                <h3 className="font-black text-gray-900 text-lg">Payment Gateway Setup</h3>
               </div>
-              <p className="text-sm text-gray-500">Customers pay directly to your bank via any UPI app — no fees, instant settlement</p>
+              <p className="text-sm text-gray-500">Configure how you receive payments directly to your bank account.</p>
             </div>
+            {!editingPayment && (
+              <button
+                onClick={() => setEditingPayment(true)}
+                className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-gray-900 bg-white hover:bg-gray-100 px-3 py-2 rounded-xl transition-colors shadow-sm"
+              >
+                <Edit3 size={13} /> Edit
+              </button>
+            )}
           </div>
 
-          {!editingUpi && upiId ? (
-            // Show saved UPI
-            <div className="flex flex-col sm:flex-row gap-4 items-start">
-              <div className="flex-1 bg-white rounded-2xl p-4 border border-green-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Your UPI ID</p>
-                    <p className="font-black text-gray-900 text-lg">{upiId}</p>
+          {!editingPayment ? (
+            <div className="flex flex-col gap-4">
+              {/* UPI View */}
+              <div className="flex flex-col sm:flex-row gap-4 items-start">
+                <div className="flex-1 bg-white rounded-2xl p-4 border border-green-200 w-full">
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Your UPI ID (Free Flow)</p>
+                  <p className="font-black text-gray-900 text-lg">{upiId || 'Not configured'}</p>
+                  {upiId && (
                     <div className="flex items-center gap-1.5 mt-2">
                       <CheckCircle size={14} className="text-green-500" />
-                      <span className="text-xs font-bold text-green-600">Active — customers can pay via UPI</span>
+                      <span className="text-xs font-bold text-green-600">Active — customers can pay via UPI app</span>
                     </div>
+                  )}
+                </div>
+                {upiPreviewLink && (
+                  <div className="bg-white rounded-2xl p-4 border border-green-200 flex flex-col items-center gap-2">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Your UPI QR</p>
+                    <QRCodeCanvas value={upiPreviewLink} size={100} bgColor="#ffffff" fgColor="#1a1a1a" level="H" />
                   </div>
-                  <button
-                    onClick={() => setEditingUpi(true)}
-                    className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-xl transition-colors"
-                  >
-                    <Edit3 size={13} /> Edit
-                  </button>
-                </div>
+                )}
               </div>
-              {upiPreviewLink && (
-                <div className="bg-white rounded-2xl p-4 border border-green-200 flex flex-col items-center gap-2">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Your UPI QR</p>
-                  <QRCodeCanvas
-                    value={upiPreviewLink}
-                    size={100}
-                    bgColor="#ffffff"
-                    fgColor="#1a1a1a"
-                    level="H"
-                  />
-                  <p className="text-[10px] text-gray-400">Preview only</p>
-                </div>
-              )}
+
+              {/* Razorpay View */}
+              <div className="bg-white rounded-2xl p-4 border border-green-200">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Razorpay Key ID (For ₹1500 Plan Checkout)</p>
+                <p className="font-black text-gray-900 font-mono text-sm">{rzpKeyId ? `${rzpKeyId.substring(0, 8)}...` : 'Not configured'}</p>
+                {rzpKeyId && (
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <CheckCircle size={14} className="text-green-500" />
+                    <span className="text-xs font-bold text-green-600">Configured</span>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
-            // Edit UPI form
-            <div className="bg-white rounded-2xl p-4 border border-green-200">
-              <p className="text-xs font-bold text-gray-500 mb-3">
-                Enter your UPI ID (e.g. <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">yourname@paytm</span>, <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">9876543210@upi</span>)
-              </p>
-              <div className="flex gap-2">
+            <div className="bg-white rounded-2xl p-5 border border-green-200 space-y-4">
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">UPI ID (e.g. 9876543210@upi)</label>
                 <input
                   type="text"
                   value={upiInput}
                   onChange={e => setUpiInput(e.target.value)}
-                  placeholder="yourname@paytm or 9xxxxxxxx@ybl"
-                  className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+                  placeholder="Leave empty if not using UPI directly"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
-                <button
-                  onClick={saveUpi}
-                  disabled={savingUpi}
-                  className="flex items-center gap-2 bg-green-600 text-white px-5 py-3 rounded-xl font-bold text-sm hover:bg-green-700 transition-colors disabled:opacity-60"
-                >
-                  <Save size={15} /> {savingUpi ? 'Saving...' : 'Save'}
-                </button>
-                {upiId && (
-                  <button onClick={() => { setEditingUpi(false); setUpiInput(upiId); }} className="px-4 py-3 rounded-xl bg-gray-100 text-gray-600 text-sm font-bold hover:bg-gray-200">
-                    Cancel
-                  </button>
-                )}
               </div>
-              <p className="text-[10px] text-gray-400 mt-3">
-                ✅ Works with PhonePe, GPay, Paytm, BHIM — customers scan, pay, and confirm. Amount is pre-filled.
-              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">Razorpay Key ID</label>
+                  <input
+                    type="text"
+                    value={rzpKeyId}
+                    onChange={e => setRzpKeyId(e.target.value)}
+                    placeholder="rzp_live_..."
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">Razorpay Key Secret</label>
+                  <input
+                    type="password"
+                    value={rzpKeySecret}
+                    onChange={e => setRzpKeySecret(e.target.value)}
+                    placeholder="••••••••••••••••"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={savePaymentSettings}
+                  disabled={savingPayment}
+                  className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-green-700 transition-colors disabled:opacity-60 flex items-center gap-2"
+                >
+                  <Save size={15} /> {savingPayment ? 'Saving...' : 'Save Settings'}
+                </button>
+                <button 
+                  onClick={() => { 
+                    setEditingPayment(false); 
+                    setUpiInput(upiId); 
+                  }} 
+                  className="px-6 py-3 rounded-xl bg-gray-100 text-gray-600 text-sm font-bold hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
         </div>
