@@ -14,7 +14,7 @@ const orderSchema = new mongoose.Schema({
   paymentStatus: { type: String, enum: ['PENDING', 'PAID'], default: 'PENDING' },
   status: {
     type: String,
-    enum: ['PLACED', 'ACCEPTED', 'PREPARING', 'READY', 'COMPLETED'],
+    enum: ['PENDING_PAYMENT', 'PLACED', 'ACCEPTED', 'PREPARING', 'READY', 'COMPLETED'],
     default: 'PLACED'
   }
 }, { timestamps: true });

@@ -7,12 +7,18 @@ const router = express.Router();
 // POST place order (public - customer)
 router.post('/', async (req, res) => {
   try {
-    const { cafeId, tableNumber, items, customerPhone } = req.body;
+    const { cafeId, tableNumber, items, customerPhone, isOnlinePayment } = req.body;
     if (!cafeId || !tableNumber || !items || items.length === 0) {
       return res.status(400).json({ error: 'cafeId, tableNumber, and items required' });
     }
     const totalAmount = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    const order = await Order.create({ cafeId, tableNumber, items, totalAmount, customerPhone: customerPhone || null });
+    const orderData = { cafeId, tableNumber, items, totalAmount, customerPhone: customerPhone || null };
+    
+    if (isOnlinePayment) {
+      orderData.status = 'PENDING_PAYMENT';
+    }
+
+    const order = await Order.create(orderData);
     res.status(201).json(order);
   } catch (err) {
     console.error(err);
@@ -37,7 +43,11 @@ router.get('/cafe/:cafeId', auth, async (req, res) => {
     if (req.user.role !== 'ADMIN' || req.user.cafeId !== req.params.cafeId) {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    const orders = await Order.find({ cafeId: req.params.cafeId })
+    // Do not show orders that are still pending payment
+    const orders = await Order.find({ 
+      cafeId: req.params.cafeId,
+      status: { $ne: 'PENDING_PAYMENT' } 
+    })
       .sort({ createdAt: -1 })
       .limit(100);
     res.json(orders);
@@ -121,9 +131,12 @@ router.post('/razorpay/verify', async (req, res) => {
       return res.status(400).json({ error: 'Invalid payment signature' });
     }
 
-    // Mark our order as PAID
+    // Mark our order as PAID and update status to PLACED so the kitchen sees it
     if (orderId) {
-      await Order.findByIdAndUpdate(orderId, { paymentStatus: 'PAID' });
+      await Order.findByIdAndUpdate(orderId, { 
+        paymentStatus: 'PAID',
+        status: 'PLACED'
+      });
     }
 
     res.json({ success: true });

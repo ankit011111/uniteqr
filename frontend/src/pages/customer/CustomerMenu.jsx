@@ -98,7 +98,8 @@ const CustomerMenu = () => {
         cafeId,
         tableNumber: parseInt(tableNumber),
         items,
-        customerPhone: customerPhone || null
+        customerPhone: customerPhone || null,
+        isOnlinePayment: true
       });
       const localOrderId = orderRes.data._id;
 
