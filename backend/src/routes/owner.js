@@ -46,6 +46,7 @@ router.get('/stats', auth, async (req, res) => {
 
       return {
         cafeName: cafe.cafeName,
+        username: cafe.username,
         cafeId: cafe.cafeId,
         phone: cafe.phone,
         createdBy: cafe.createdBy || 'Unknown',

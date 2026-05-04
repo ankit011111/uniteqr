@@ -237,7 +237,8 @@ const OwnerDashboard = () => {
                     <td className="px-8 py-5">
                       <div>
                         <p className="font-bold text-gray-900">{cafe.cafeName}</p>
-                        <p className="text-[10px] text-gray-400 font-mono">{cafe.cafeId}</p>
+                        <p className="text-[10px] text-gray-400 font-mono">ID: {cafe.cafeId}</p>
+                        <p className="text-[10px] text-blue-500 font-mono font-bold mt-0.5">User: {cafe.username}</p>
                       </div>
                     </td>
                     <td className="px-8 py-5">
