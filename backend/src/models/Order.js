@@ -11,6 +11,7 @@ const orderSchema = new mongoose.Schema({
   }],
   totalAmount: { type: Number, required: true },
   customerPhone: { type: String },
+  estimatedCompletionTime: { type: Date },
   paymentStatus: { type: String, enum: ['PENDING', 'PAID'], default: 'PENDING' },
   status: {
     type: String,

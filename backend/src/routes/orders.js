@@ -60,14 +60,20 @@ router.get('/cafe/:cafeId', auth, async (req, res) => {
 router.put('/:id/status', auth, async (req, res) => {
   try {
     if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Forbidden' });
-    const { status } = req.body;
+    const { status, estimatedTime } = req.body;
     const validStatuses = ['PLACED', 'ACCEPTED', 'PREPARING', 'READY', 'COMPLETED'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
+
+    const updateData = { status };
+    if (status === 'ACCEPTED' && estimatedTime) {
+      updateData.estimatedCompletionTime = new Date(Date.now() + estimatedTime * 60000);
+    }
+
     const order = await Order.findOneAndUpdate(
       { _id: req.params.id, cafeId: req.user.cafeId },
-      { status },
+      updateData,
       { new: true }
     );
     if (!order) return res.status(404).json({ error: 'Order not found' });

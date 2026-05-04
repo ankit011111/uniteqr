@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../utils/api';
-import { Coffee, CheckCircle, Circle } from 'lucide-react';
+import { Coffee, CheckCircle, Circle, Clock } from 'lucide-react';
 
 const STEPS = [
   { status: 'PLACED', label: 'Order Placed', emoji: '📋', desc: 'Your order has been received' },
@@ -33,6 +33,32 @@ const OrderStatus = () => {
     const interval = setInterval(fetchOrder, 5000);
     return () => clearInterval(interval);
   }, [orderId]);
+
+  const [timeLeft, setTimeLeft] = useState(null);
+
+  useEffect(() => {
+    if (order?.estimatedCompletionTime && !['READY', 'COMPLETED'].includes(order.status)) {
+      const target = new Date(order.estimatedCompletionTime).getTime();
+      
+      const updateTimer = () => {
+        const now = Date.now();
+        const diff = target - now;
+        if (diff > 0) {
+          const m = Math.floor(diff / 60000);
+          const s = Math.floor((diff % 60000) / 1000);
+          setTimeLeft(`${m}:${s.toString().padStart(2, '0')}`);
+        } else {
+          setTimeLeft('Almost ready...');
+        }
+      };
+
+      updateTimer();
+      const interval = setInterval(updateTimer, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setTimeLeft(null);
+    }
+  }, [order?.estimatedCompletionTime, order?.status]);
 
   const currentIndex = order ? STATUS_ORDER.indexOf(order.status) : 0;
 
@@ -76,6 +102,28 @@ const OrderStatus = () => {
             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
             <span className="text-xs text-green-600 font-medium">Live updates</span>
           </div>
+          {timeLeft && (
+            <div className="mt-8 relative mb-4">
+              <div className="absolute inset-0 bg-orange-400 opacity-20 blur-xl rounded-full animate-pulse"></div>
+              <div className="relative inline-flex flex-col items-center justify-center bg-white border border-orange-100 px-8 py-6 rounded-[32px] shadow-xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock size={16} className="text-orange-500 animate-spin-slow" />
+                  <p className="text-[11px] text-orange-500 font-black uppercase tracking-[0.2em]">Estimated Wait</p>
+                </div>
+                <div className="text-5xl font-black text-gray-900 font-mono tracking-tighter" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {timeLeft.includes(':') ? (
+                    <>
+                      <span className="text-orange-600">{timeLeft.split(':')[0]}</span>
+                      <span className="text-orange-300 mx-1 animate-pulse">:</span>
+                      <span className="text-orange-600">{timeLeft.split(':')[1]}</span>
+                    </>
+                  ) : (
+                    <span className="text-xl text-orange-600">{timeLeft}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {isCompleted ? (

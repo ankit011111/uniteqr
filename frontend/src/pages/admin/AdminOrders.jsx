@@ -39,9 +39,9 @@ const AdminOrders = () => {
     return () => clearInterval(interval);
   }, [fetchOrders]);
 
-  const updateStatus = async (orderId, status) => {
+  const updateStatus = async (orderId, status, estimatedTime = null) => {
     try {
-      await api.put(`/orders/${orderId}/status`, { status });
+      await api.put(`/orders/${orderId}/status`, { status, estimatedTime });
       setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status } : o));
       toast.success(`Order marked as ${status}`);
     } catch {
@@ -105,10 +105,30 @@ const AdminOrders = () => {
                             </div>
                           ))}
                         </div>
-                        {statusInfo.next && (
+                        {statusInfo.next && status === 'PLACED' ? (
+                          <div className="mt-4 pt-3 border-t border-yellow-200/50">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs font-bold text-yellow-800 flex items-center gap-1">
+                                <Clock size={12} /> Accept & Set Time
+                              </p>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2">
+                              {[5, 10, 15, 20].map(time => (
+                                <button
+                                  key={time}
+                                  onClick={() => updateStatus(order._id, statusInfo.next, time)}
+                                  className="group relative flex flex-col items-center justify-center py-2 bg-white rounded-xl border-2 border-yellow-200 hover:border-yellow-500 hover:bg-yellow-50 transition-all overflow-hidden"
+                                >
+                                  <span className="text-sm font-black text-yellow-700 group-hover:text-yellow-600">{time}</span>
+                                  <span className="text-[9px] font-bold text-yellow-500 uppercase">mins</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : statusInfo.next && (
                           <button
                             onClick={() => updateStatus(order._id, statusInfo.next)}
-                            className={`w-full py-2 rounded-xl text-white text-sm font-semibold ${statusInfo.btnColor} transition-colors`}
+                            className={`w-full py-2.5 mt-3 rounded-xl text-white text-sm font-bold ${statusInfo.btnColor} transition-all`}
                           >
                             {statusInfo.label}
                           </button>
