@@ -15,26 +15,28 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Username and password required' });
     }
 
-    // Check employee first
-    let user = await Employee.findOne({ username });
-    if (user) {
-      const match = await bcrypt.compare(password, user.passwordHash);
-      if (!match) return res.status(401).json({ error: 'Invalid credentials' });
+    // Run lookups in parallel
+    const [employeeUser, adminUser] = await Promise.all([
+      Employee.findOne({ username }).lean(),
+      User.findOne({ username }).lean()
+    ]);
+
+    const user = employeeUser || adminUser;
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const match = await bcrypt.compare(password, user.passwordHash);
+    if (!match) return res.status(401).json({ error: 'Invalid credentials' });
+
+    if (employeeUser) {
       const userRole = user.role || 'EMPLOYEE';
       const token = jwt.sign({ id: user._id, role: userRole }, JWT_SECRET, { expiresIn: '7d' });
       return res.json({ token, role: userRole, username: user.username });
-    }
-
-    // Check admin
-    user = await User.findOne({ username });
-    if (user) {
-      const match = await bcrypt.compare(password, user.passwordHash);
-      if (!match) return res.status(401).json({ error: 'Invalid credentials' });
+    } else {
       const token = jwt.sign({ id: user._id, role: 'ADMIN', cafeId: user.cafeId, planType: user.planType }, JWT_SECRET, { expiresIn: '7d' });
       return res.json({ token, role: 'ADMIN', username: user.username, cafeName: user.cafeName, cafeId: user.cafeId, planType: user.planType });
     }
-
-    return res.status(401).json({ error: 'Invalid credentials' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });

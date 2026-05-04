@@ -3,17 +3,14 @@ import { createContext, useContext, useState, useEffect } from 'react';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
-
-  useEffect(() => {
-    const savedToken = localStorage.getItem('uniteqr_token');
+  const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('uniteqr_user');
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-    }
-  }, []);
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+  
+  const [token, setToken] = useState(() => {
+    return localStorage.getItem('uniteqr_token') || null;
+  });
 
   const login = (userData, jwt) => {
     setUser(userData);

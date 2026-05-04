@@ -46,7 +46,7 @@ const OwnerDashboard = () => {
   // Edit Cafe State
   const [showEditCafe, setShowEditCafe] = useState(false);
   const [editingCafe, setEditingCafe] = useState(null);
-  const [editCafeData, setEditCafeData] = useState({ planType: 500, password: '' });
+  const [editCafeData, setEditCafeData] = useState({ planType: 500, password: '', cafeName: '' });
 
   const fetchStats = async () => {
     try {
@@ -91,7 +91,7 @@ const OwnerDashboard = () => {
 
   const handleEditCafe = (cafe) => {
     setEditingCafe(cafe);
-    setEditCafeData({ planType: cafe.planType || 500, password: '' });
+    setEditCafeData({ planType: cafe.planType || 500, password: '', cafeName: cafe.cafeName || '' });
     setShowEditCafe(true);
   };
 
@@ -102,6 +102,9 @@ const OwnerDashboard = () => {
       const payload = { planType: editCafeData.planType };
       if (editCafeData.password.trim()) {
         payload.password = editCafeData.password.trim();
+      }
+      if (editCafeData.cafeName?.trim()) {
+        payload.cafeName = editCafeData.cafeName.trim();
       }
       await api.put(`/owner/cafes/${editingCafe.cafeId}`, payload);
       toast.success('Cafe updated successfully');
@@ -410,6 +413,17 @@ const OwnerDashboard = () => {
             </div>
             
             <form onSubmit={handleUpdateCafe} className="space-y-6">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Café Name</label>
+                <input 
+                  type="text" 
+                  value={editCafeData.cafeName} 
+                  onChange={e => setEditCafeData({ ...editCafeData, cafeName: e.target.value })}
+                  className="w-full bg-gray-50 border-0 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-blue-600 outline-none" 
+                  placeholder="Café Name" 
+                />
+              </div>
+
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Subscription Plan</label>
                 <select

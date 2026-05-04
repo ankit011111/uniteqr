@@ -112,7 +112,7 @@ router.put('/employees/:id', auth, async (req, res) => {
 router.put('/cafes/:cafeId', auth, async (req, res) => {
   try {
     if (req.user.role !== 'OWNER') return res.status(403).json({ error: 'Forbidden' });
-    const { planType, password } = req.body;
+    const { planType, password, cafeName } = req.body;
     
     let updateData = {};
     
@@ -127,6 +127,10 @@ router.put('/cafes/:cafeId', auth, async (req, res) => {
       updateData.passwordHash = await bcrypt.hash(password, 10);
     }
 
+    if (cafeName && cafeName.trim()) {
+      updateData.cafeName = cafeName.trim();
+    }
+
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: 'No data to update' });
     }
@@ -137,7 +141,7 @@ router.put('/cafes/:cafeId', auth, async (req, res) => {
       { new: true }
     );
     if (!cafe) return res.status(404).json({ error: 'Cafe not found' });
-    res.json({ success: true, planType: cafe.planType });
+    res.json({ success: true, planType: cafe.planType, cafeName: cafe.cafeName });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
